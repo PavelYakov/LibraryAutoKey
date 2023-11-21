@@ -5,124 +5,77 @@ using System.Text.Json.Serialization;
 using System.Text.Json;
 using Library.Models;
 
+using System.Net;
+using Library.Interfaces;
+
 namespace Library.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     public class BookController: ControllerBase
     {
-        private readonly LibraryDbContext _context;
+        
+        private readonly IBookService _bookService;
 
-        public BookController(LibraryDbContext context)
+        public BookController(IBookService bookService)
         {
-            _context = context;
-        }
-
-        [HttpGet("All-books")]
-        public IActionResult GetAllBooksAndAuthors()
-        {
-            var booksAndAuthors = _context.Books
-                .Include(b => b.Authors) 
-                .Select(b => new
-                {
-                    BookId = b.Id,
-                    Title = b.Title,
-                    IsAvailable = b.IsAvailable,
-                    Authors = b.Authors.Select(a => new { AuthorId = a.Author.Id, AuthorName = a.Author.Name })
-                })
-                .ToList();
-
-            return Ok(booksAndAuthors);
+            _bookService = bookService;
         }
 
         [HttpGet("books/{id}")]
         public IActionResult GetBookById(int id)
         {
-            var book = _context.Books
-                      .Include(b => b.Authors)
-                      .FirstOrDefault(b => b.Id == id);
-
+            var book = _bookService.GetBookById(id);
+         
             if (book == null)
             {
-                return NotFound(); 
+                return NotFound();
             }
 
             return Ok(book);
+
         }
 
-        
-        [HttpGet("books filtres")]
+        [HttpGet("filter-books")]
         public IActionResult GetBooksByFilter(string? authorName, string? title, bool? isAvailable)
         {
-            IQueryable<Book> query = _context.Books.Include(b => b.Authors);
-
-            // Фильтрация по имени автора
-            if (!string.IsNullOrEmpty(authorName))
-            {
-                query = query.Where(b => b.Authors.Any(a => a.Author.Name.Contains(authorName)));
-            }
-
-            // Фильтрация по названию книги
-            if (!string.IsNullOrEmpty(title))
-            {
-                query = query.Where(b => b.Title.Contains(title));
-            }
-
-            // Фильтрация по наличию книги
-            if (isAvailable.HasValue)
-            {
-                query = query.Where(b => b.IsAvailable == isAvailable.Value);
-            }
-
-            var books = query.ToList();
-
-            
-
-            return Ok(books);
+            var filtresbooks = _bookService.GetBooksByFilter(authorName, title, isAvailable);
+            return Ok(filtresbooks);
         }
 
-        [HttpPost("books/{id}/pick up")]
+        [HttpPost("books/{id}/pick-up")]
         public IActionResult BorrowBook(int id)
         {
-            var book = _context.Books.FirstOrDefault(b => b.Id == id);
+            var result = _bookService.BorrowBook(id);
 
-            if (book == null)
+            if (result == "Book not found.")
             {
-                return NotFound(); 
+                return NotFound(result);
+            }
+            else if (result == "The book has already been issued.")
+            {
+                return BadRequest(result);
             }
 
-            if (!book.IsAvailable)
-            {
-                return BadRequest("The book has already been issued."); // Книга уже взята
-            }
-
-            // Обновляем статус на "взято"
-            book.IsAvailable = false;
-            _context.SaveChanges();
-
-            return Ok("The book has been issued.");
+            return Ok(result);
         }
 
         [HttpPost("books/{id}/return")]
         public IActionResult ReturnBook(int id)
         {
-            var book = _context.Books.FirstOrDefault(b => b.Id == id);
+            var result = _bookService.ReturnBook(id);
 
-            if (book == null)
+            if (result == "Book not found.")
             {
-                return NotFound(); 
+                return NotFound(result);
+            }
+            else if (result == "Book is already available.")
+            {
+                return BadRequest(result);
             }
 
-            if (book.IsAvailable)
-            {
-                return BadRequest("Book is already available."); // Книга уже возвращена
-            }
-
-            // Обновляем статус на "в наличии"
-            book.IsAvailable = true;
-            _context.SaveChanges();
-
-            return Ok("Book returned successfully.");
+            return Ok(result);
         }
+
     }
 }

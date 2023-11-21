@@ -1,5 +1,7 @@
 ﻿using Library.Context;
+using Library.Interfaces;
 using Library.Models;
+using Library.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,66 +12,46 @@ namespace Library.Controllers
    
     public class AuthorController : ControllerBase
     {
-        private readonly LibraryDbContext _context;
+        
+        private readonly IAuthorService _authorService;
 
-        public AuthorController(LibraryDbContext context)
+        public AuthorController(IAuthorService authorService)
         {
-            _context = context;
+            _authorService = authorService;
         }
+        
 
-        [HttpGet("All-authors")]
-        public IActionResult GetAllBooksAndAuthors()
+        [HttpGet("authors")]
+        public IActionResult GetAllAuthors()
         {
-            var Authors = _context.Authors
+            var Authors = _authorService.GetAllAuthors();
                  
-                .ToList();
-
+                
             return Ok(Authors);
         }
 
         [HttpGet("author/{id}")]
         public IActionResult GetAuthorById(int id)
         {
-            var author = _context.Authors
-                      .Where(a => a.Id == id)
-                      .FirstOrDefault();
+            
+            var author = _authorService.GetAuthorById(id);
 
             if (author == null)
             {
-                return NotFound(); 
+                return NotFound();
             }
 
             return Ok(author);
 
-           
         }
 
-        [HttpGet("authors filters")]
+        [HttpGet("filter-authors")]
         public IActionResult GetAuthorsByFilter(string? title, bool? isAvailable)
         {
-            IQueryable<Author> query = _context.Authors.Include(a => a.Books);
-
-            // Фильтрация по названию книги
-            if (!string.IsNullOrEmpty(title))
-            {
-                query = query.Where(a => a.Books.Any(ba => ba.Book.Title.Contains(title)));
-            }
-
-            // Фильтрация по наличию книги
-            if (isAvailable.HasValue)
-            {
-                query = query.Where(a => a.Books.Any(b => b.Book.IsAvailable == isAvailable.Value));
-            }
-
-            var authors = query.ToList();
-
-            return Ok(authors);
+            
+            var filtresbooks = _authorService.GetAuthorsByFilter(title, isAvailable);
+            return Ok(filtresbooks);
         }
-
-
-
-
-
 
 
     }
